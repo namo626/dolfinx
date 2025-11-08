@@ -4,8 +4,10 @@
 #include <dolfinx/geometry/BoundingBoxTree.h>
 #include <dolfinx/geometry/dolfinx_geometry.h>
 #include <dolfinx/geometry/utils.h>
+#include <dolfinx/mesh/Mesh.h>
 #include <memory>
 #include <dolfinx.h>
+#include <span>
 #include <typeinfo>
 
 using namespace dolfinx;
@@ -30,7 +32,7 @@ int main(int argc, char* argv[]) {
                                          basix::element::lagrange_variant::unset,
                                          basix::element::dpc_variant::unset, false
                                          );
-  auto mesh = std::make_shared<mesh::Mesh<T>>(
+  const auto mesh = std::make_shared<mesh::Mesh<T>>(
                                               mesh::create_interval<T>(
                                                                        MPI_COMM_WORLD,
                                                                        num_cells,
@@ -66,10 +68,32 @@ int main(int argc, char* argv[]) {
   }
   std::cout << std::endl;
 
+  /* Create coordinates */
 
-  auto bb_tree = geometry::BoundingBoxTree<T>(mesh, 1, 1e-10);
+  int num_evals = 100;
+  std::vector<T> v(num_evals);
+  for (int i = 0; i < num_evals; i++) {
+    v[i] = i*upper/(T)num_evals;
+  }
+
+  std::vector<T> v_coords(3*num_evals, 0.);
+  {
+    int i = 0;
+    int j = 0;
+    while (i < v_coords.size())
+    {
+      v_coords[i] = v[j];
+      j += 1;
+      i += 3;
+    }
+  }
+  std::span<const T> coords(v_coords);
+
+  const mesh::Mesh<T> mesh2 = *f->function_space()->mesh();
+
+  const auto bb_tree = geometry::BoundingBoxTree<T>(mesh2, 1, 1e-10);
   auto potential_cells = geometry::compute_collisions(bb_tree, coords);
-  auto colliding_cells = geometry::compute_colliding_cells(mesh, potential_cells, coords);
+  auto colliding_cells = geometry::compute_colliding_cells(*f->function_space()->mesh(), potential_cells, coords);
 
   return 0;
 }
