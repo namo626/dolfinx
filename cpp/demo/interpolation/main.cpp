@@ -1,5 +1,6 @@
 
 #include <basix/finite-element.h>
+#include <cstdint>
 #include <dolfinx/fem/Function.h>
 #include <dolfinx/geometry/BoundingBoxTree.h>
 #include <dolfinx/geometry/dolfinx_geometry.h>
@@ -90,10 +91,11 @@ int main(int argc, char* argv[]) {
   std::span<const T> coords(v_coords);
 
   const mesh::Mesh<T> mesh2 = *f->function_space()->mesh();
+  std::span<const std::int32_t> entities;
 
-  const auto bb_tree = geometry::BoundingBoxTree<T>(mesh2, 1, 1e-10);
+  const auto bb_tree = geometry::BoundingBoxTree<T>(*mesh, 1, entities,1e-10);
   auto potential_cells = geometry::compute_collisions(bb_tree, coords);
-  auto colliding_cells = geometry::compute_colliding_cells(*f->function_space()->mesh(), potential_cells, coords);
+  auto colliding_cells = geometry::compute_colliding_cells(*mesh, potential_cells, coords);
 
   return 0;
 }
