@@ -1,5 +1,6 @@
 
 #include <basix/finite-element.h>
+#include <cstddef>
 #include <cstdint>
 #include <dolfinx/fem/Function.h>
 #include <dolfinx/geometry/BoundingBoxTree.h>
@@ -11,8 +12,31 @@
 #include <span>
 #include <typeinfo>
 
+template<typename T>
+void printVec(const std::vector<T>& vec) {
+  for (auto v : vec) {
+    std::cout << v << " ";
+  }
+  std::cout << std::endl;
+}
+template<typename T>
+void printSpan(const std::span<T>& sp) {
+  for (auto v : sp) {
+    std::cout << v << " ";
+  }
+  std::cout << std::endl;
+}
+
 using namespace dolfinx;
 using T = double;
+
+std::vector<int> get_cells(int elem_size, std::vector<T> coords) {
+  std::vector<int> cells;
+  for ( auto x : coords ) {
+    cells.push_back((int)std::floor(x / (T)elem_size));
+  }
+  return cells;
+}
 
 int main(int argc, char* argv[]) {
   init_logging(argc, argv);
@@ -71,11 +95,13 @@ int main(int argc, char* argv[]) {
 
   /* Create coordinates */
 
-  int num_evals = 100;
+  const int num_evals = 20;
   std::vector<T> v(num_evals);
   for (int i = 0; i < num_evals; i++) {
     v[i] = i*upper/(T)num_evals;
   }
+  std::cout << "Coordinates = " << std::endl;
+  printVec(v);
 
   std::vector<T> v_coords(3*num_evals, 0.);
   {
@@ -89,13 +115,46 @@ int main(int argc, char* argv[]) {
     }
   }
   std::span<const T> coords(v_coords);
+  std::cout << "3D Coordinates = " << std::endl;
+  //printVec(v_coords);
+  printSpan(coords);
 
-  const mesh::Mesh<T> mesh2 = *f->function_space()->mesh();
-  std::span<const std::int32_t> entities;
+#if 1
+  const int tdim = mesh->topology()->dim();
+  auto cell_map = mesh->topology()->index_map(tdim);
+  std::vector<std::int32_t> entities(cell_map->size_local(), 0);
+  std::cout << "Entities size = " << entities.size() << std::endl;
 
-  const auto bb_tree = geometry::BoundingBoxTree<T>(*mesh, 1, entities,1e-10);
+  std::vector<int> ent = {0,1,2,3,4,5,6,7,8,9};
+
+  const auto bb_tree = geometry::BoundingBoxTree<T>(*mesh, mesh->topology()->dim(), ent ,1e-12);
+  std::cout << "Num_bboxes = " << bb_tree.num_bboxes() << std::endl;
   auto potential_cells = geometry::compute_collisions(bb_tree, coords);
   auto colliding_cells = geometry::compute_colliding_cells(*mesh, potential_cells, coords);
 
+  std::vector<std::int32_t> cells;
+  for (int i = 0; i < num_evals; i++) {
+    //std::cout << "Link size: " << colliding_cells.links(1).size() << std::endl;
+    if (colliding_cells.links(i).size() > 0)
+      cells.push_back(colliding_cells.links(i)[0]);
+  }
+
+  std::cout << "Colliding cells size = " << cells.size() << std::endl;
+#endif 
+
+  /* Find cell index that each point resides in */
+
+  printVec(cells);
+
+  //std::span<const std::int32_t> cells_span(cells);
+
+  const std::size_t value_size = f->function_space()->value_size();
+  std::cout << "Value_size = " << value_size  << std::endl;
+  std::vector<T> u(num_evals * value_size);
+  f->eval(coords, {num_evals, 3}, cells, u, {num_evals, value_size});
+
+  printVec(u);
+
   return 0;
 }
+
