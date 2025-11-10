@@ -11,6 +11,10 @@
 #include <dolfinx.h>
 #include <span>
 #include <typeinfo>
+#include <chrono>
+using std::chrono::duration;
+using std::chrono::high_resolution_clock;
+using std::chrono::milliseconds;
 
 template<typename T>
 void printVec(const std::vector<T>& vec) {
@@ -47,16 +51,16 @@ int main(int argc, char* argv[]) {
   //       basix::element::lagrange_variant::unset,
   //       basix::element::dpc_variant::unset, false);
 
-  int num_cells = 10;
-  T lower = 0.;
-  T upper = 10.;
+  const int num_cells = 1000;
+  const T lower = 0.;
+  const T upper = 100.;
   auto element = basix::create_element<T>(
-                                         basix::element::family::P,
-                                         basix::cell::type::interval,
-                                         2,
-                                         basix::element::lagrange_variant::unset,
-                                         basix::element::dpc_variant::unset, false
-                                         );
+                                          basix::element::family::P,
+                                          basix::cell::type::interval,
+                                          3,
+                                          basix::element::lagrange_variant::equispaced,
+                                          basix::element::dpc_variant::unset, false
+                                          );
   const auto mesh = std::make_shared<mesh::Mesh<T>>(
                                               mesh::create_interval<T>(
                                                                        MPI_COMM_WORLD,
@@ -68,40 +72,19 @@ int main(int argc, char* argv[]) {
   auto f = std::make_shared<fem::Function<T>>(V);
 
   auto dof = f->x()->array();
-  std::cout << "Type of dof is: " << typeid(dof).name() << std::endl;
+  //std::cout << "Type of dof is: " << typeid(dof).name() << std::endl;
 
-  for (auto x: dof) {
-    std::cout << x << ' ';
-  }
-  std::cout << std::endl;
 
-  f->interpolate(
-      [](auto x) -> std::pair<std::vector<T>, std::vector<std::size_t>>
-      {
-        std::vector<T> f;
-        for (std::size_t p = 0; p < x.extent(1); ++p)
-        {
-          f.push_back(x(0, p) * x(0, p));
-        }
-
-        return {f, {f.size()}};
-      });
-
-  dof = f->x()->array();
-  for (auto x: dof) {
-    std::cout << x << ' ';
-  }
-  std::cout << std::endl;
 
   /* Create coordinates */
 
-  const int num_evals = 20;
+  const int num_evals = 10000;
   std::vector<T> v(num_evals);
   for (int i = 0; i < num_evals; i++) {
     v[i] = i*upper/(T)num_evals;
   }
-  std::cout << "Coordinates = " << std::endl;
-  printVec(v);
+  //std::cout << "Coordinates = " << std::endl;
+  //printVec(v);
 
   std::vector<T> v_coords(3*num_evals, 0.);
   {
@@ -115,9 +98,8 @@ int main(int argc, char* argv[]) {
     }
   }
   std::span<const T> coords(v_coords);
-  std::cout << "3D Coordinates = " << std::endl;
-  //printVec(v_coords);
-  printSpan(coords);
+  //std::cout << "3D Coordinates = " << std::endl;
+  //printSpan(coords);
 
 #if 1
   const int tdim = mesh->topology()->dim();
@@ -125,7 +107,10 @@ int main(int argc, char* argv[]) {
   std::vector<std::int32_t> entities(cell_map->size_local(), 0);
   std::cout << "Entities size = " << entities.size() << std::endl;
 
-  std::vector<int> ent = {0,1,2,3,4,5,6,7,8,9};
+  std::vector<int> ent;
+  for (int i = 0; i < num_cells; i++) {
+    ent.push_back(i);
+  }
 
   const auto bb_tree = geometry::BoundingBoxTree<T>(*mesh, mesh->topology()->dim(), ent ,1e-12);
   std::cout << "Num_bboxes = " << bb_tree.num_bboxes() << std::endl;
@@ -144,16 +129,37 @@ int main(int argc, char* argv[]) {
 
   /* Find cell index that each point resides in */
 
-  printVec(cells);
+  //printVec(cells);
 
   //std::span<const std::int32_t> cells_span(cells);
 
-  const std::size_t value_size = f->function_space()->value_size();
-  std::cout << "Value_size = " << value_size  << std::endl;
-  std::vector<T> u(num_evals * value_size);
-  f->eval(coords, {num_evals, 3}, cells, u, {num_evals, value_size});
+  f->interpolate(
+      [](auto x) -> std::pair<std::vector<T>, std::vector<std::size_t>>
+      {
+        std::vector<T> f;
+        for (std::size_t p = 0; p < x.extent(1); ++p)
+        {
+          f.push_back(1 + x(0, p) * 0.1);
+        }
 
-  printVec(u);
+        return {f, {f.size()}};
+      });
+  const std::size_t value_size = f->function_space()->value_size();
+  std::vector<T> u(num_evals * value_size);
+
+  const int ITER = 10000;
+  auto t1 = high_resolution_clock::now();
+  for (int i = 0; i < ITER; i++) {
+    f->eval(coords, {num_evals, 3}, cells, u, {num_evals, value_size});
+    //std::cout << u.back() << " ";
+  }
+  auto t2 = high_resolution_clock::now();
+
+  duration<double, std::milli> ms = t2 - t1;
+
+  std::cout << "Average eval time: " << ms.count() / (double)ITER << "ms\n";
+
+  //printVec(u);
 
   return 0;
 }
