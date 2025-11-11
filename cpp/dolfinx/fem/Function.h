@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+//#include "CUDAeval.cpp"
 
 namespace dolfinx::fem
 {
@@ -727,6 +728,7 @@ public:
       }
       else
       {
+#if 1
         // Compute expansion
         for (int k = 0; k < bs_element; ++k)
         {
@@ -739,8 +741,12 @@ public:
             }
           }
         }
+#else
+        basis_expansion<<<1, 1>>>(p, bs_element, space_dimension, value_size,
+                                  ushape1, u.data(), coefficients.data(),
+                                  basis_values_b.data());
+#endif
       }
-    }
   }
 
   /// Name
