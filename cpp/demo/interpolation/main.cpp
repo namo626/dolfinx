@@ -2,14 +2,17 @@
 #include <basix/finite-element.h>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <dolfinx/fem/Function.h>
 #include <dolfinx/geometry/BoundingBoxTree.h>
 #include <dolfinx/geometry/dolfinx_geometry.h>
 #include <dolfinx/geometry/utils.h>
 #include <dolfinx/mesh/Mesh.h>
+#include <dolfinx/mesh/cell_types.h>
 #include <memory>
 #include <dolfinx.h>
 #include <span>
+#include <random>
 #include <typeinfo>
 #include <chrono>
 using std::chrono::duration;
@@ -31,8 +34,18 @@ void printSpan(const std::span<T>& sp) {
   std::cout << std::endl;
 }
 
+
 using namespace dolfinx;
 using T = double;
+
+std::vector<T> random_3d(T x0, T x1, int num_pts) {
+  std::vector<T> coords;
+  for (int i = 0; i < num_pts*3; i++) {
+    T scale = std::rand() / (T) RAND_MAX;
+    coords.push_back(x0 + scale*(x1-x0));
+  }
+  return coords;
+}
 
 std::vector<int> get_cells(int elem_size, std::vector<T> coords) {
   std::vector<int> cells;
@@ -51,87 +64,61 @@ int main(int argc, char* argv[]) {
   //       basix::element::lagrange_variant::unset,
   //       basix::element::dpc_variant::unset, false);
 
-  const int num_cells = 1000;
+  const int num_cells = 20;
   const T lower = 0.;
   const T upper = 100.;
+  const int num_evals = 100000;
+
   auto element = basix::create_element<T>(
                                           basix::element::family::P,
-                                          basix::cell::type::interval,
-                                          3,
+                                          basix::cell::type::tetrahedron,
+                                          8,
                                           basix::element::lagrange_variant::equispaced,
-                                          basix::element::dpc_variant::unset, false
-                                          );
+                                          basix::element::dpc_variant::unset, false);
   const auto mesh = std::make_shared<mesh::Mesh<T>>(
-                                              mesh::create_interval<T>(
-                                                                       MPI_COMM_WORLD,
-                                                                       num_cells,
-                                                                       {lower, upper}));
-
+                                                    mesh::create_box(
+                                                                     MPI_COMM_WORLD,
+                                                                     {{{lower,lower,lower},{upper,upper,upper}}},
+                                                                     {num_cells,num_cells,num_cells},
+                                                                     mesh::CellType::tetrahedron
+                                                                     ));
+  
   auto V = std::make_shared<fem::FunctionSpace<T>>(fem::create_functionspace(mesh, element, {}));
 
   auto f = std::make_shared<fem::Function<T>>(V);
 
   auto dof = f->x()->array();
-  //std::cout << "Type of dof is: " << typeid(dof).name() << std::endl;
-
 
 
   /* Create coordinates */
-
-  const int num_evals = 10000;
-  std::vector<T> v(num_evals);
-  for (int i = 0; i < num_evals; i++) {
-    v[i] = i*upper/(T)num_evals;
-  }
-  //std::cout << "Coordinates = " << std::endl;
-  //printVec(v);
-
-  std::vector<T> v_coords(3*num_evals, 0.);
-  {
-    int i = 0;
-    int j = 0;
-    while (i < v_coords.size())
-    {
-      v_coords[i] = v[j];
-      j += 1;
-      i += 3;
-    }
-  }
+  auto v_coords = random_3d(lower, upper, num_evals);
   std::span<const T> coords(v_coords);
-  //std::cout << "3D Coordinates = " << std::endl;
-  //printSpan(coords);
 
-#if 1
   const int tdim = mesh->topology()->dim();
   auto cell_map = mesh->topology()->index_map(tdim);
   std::vector<std::int32_t> entities(cell_map->size_local(), 0);
   std::cout << "Entities size = " << entities.size() << std::endl;
 
-  std::vector<int> ent;
-  for (int i = 0; i < num_cells; i++) {
-    ent.push_back(i);
+  for (int i = 0; i < entities.size(); i++) {
+    entities[i] = i;
   }
 
-  const auto bb_tree = geometry::BoundingBoxTree<T>(*mesh, mesh->topology()->dim(), ent ,1e-12);
+  const auto bb_tree = geometry::BoundingBoxTree<T>(*mesh, tdim, entities ,1e-8);
   std::cout << "Num_bboxes = " << bb_tree.num_bboxes() << std::endl;
   auto potential_cells = geometry::compute_collisions(bb_tree, coords);
   auto colliding_cells = geometry::compute_colliding_cells(*mesh, potential_cells, coords);
 
   std::vector<std::int32_t> cells;
   for (int i = 0; i < num_evals; i++) {
-    //std::cout << "Link size: " << colliding_cells.links(1).size() << std::endl;
     if (colliding_cells.links(i).size() > 0)
       cells.push_back(colliding_cells.links(i)[0]);
   }
 
   std::cout << "Colliding cells size = " << cells.size() << std::endl;
-#endif 
 
-  /* Find cell index that each point resides in */
 
   //printVec(cells);
 
-  //std::span<const std::int32_t> cells_span(cells);
 
   f->interpolate(
       [](auto x) -> std::pair<std::vector<T>, std::vector<std::size_t>>
@@ -145,13 +132,13 @@ int main(int argc, char* argv[]) {
         return {f, {f.size()}};
       });
   const std::size_t value_size = f->function_space()->value_size();
+  std::cout << "Value size: " << value_size << std::endl;
   std::vector<T> u(num_evals * value_size);
 
-  const int ITER = 10000;
+  const int ITER = 10;
   auto t1 = high_resolution_clock::now();
   for (int i = 0; i < ITER; i++) {
     f->eval(coords, {num_evals, 3}, cells, u, {num_evals, value_size});
-    //std::cout << u.back() << " ";
   }
   auto t2 = high_resolution_clock::now();
 
@@ -159,7 +146,6 @@ int main(int argc, char* argv[]) {
 
   std::cout << "Average eval time: " << ms.count() / (double)ITER << "ms\n";
 
-  //printVec(u);
 
   return 0;
 }
