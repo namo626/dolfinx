@@ -25,7 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-//#include "CUDAeval.cpp"
+#include "CUDAeval.h"
 
 namespace dolfinx::fem
 {
@@ -444,6 +444,9 @@ public:
             std::span<const std::int32_t> cells, std::span<value_type> u,
             std::array<std::size_t, 2> ushape) const
   {
+#if 1
+    CUDAeval<geometry_type, value_type>(x, xshape, cells, u, ushape);
+#else
     if (cells.empty())
       return;
 
@@ -728,7 +731,6 @@ public:
       }
       else
       {
-#if 1
         // Compute expansion
         for (int k = 0; k < bs_element; ++k)
         {
@@ -741,12 +743,9 @@ public:
             }
           }
         }
-#else
-        basis_expansion<<<1, 1>>>(p, bs_element, space_dimension, value_size,
-                                  ushape1, u.data(), coefficients.data(),
-                                  basis_values_b.data());
-#endif
       }
+    }
+#endif
   }
 
   /// Name

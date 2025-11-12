@@ -21,6 +21,7 @@ set(HEADERS_fem
     ${CMAKE_CURRENT_SOURCE_DIR}/sparsitybuild.h
     ${CMAKE_CURRENT_SOURCE_DIR}/traits.h
     ${CMAKE_CURRENT_SOURCE_DIR}/utils.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/CUDAeval.h
     PARENT_SCOPE
 )
 
@@ -35,4 +36,5 @@ target_sources(
           ${CMAKE_CURRENT_SOURCE_DIR}/petsc.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/sparsitybuild.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/CUDAeval.cpp
 )

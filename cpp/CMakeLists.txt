@@ -290,7 +290,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
        -Wno-array-bounds;-Wno-stringop-overflow)
 endif()
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -cuda")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -cuda")
 
 # ------------------------------------------------------------------------------
 # Find required packages

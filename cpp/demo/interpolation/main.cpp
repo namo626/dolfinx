@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <dolfinx.h>
 #include <dolfinx/fem/Function.h>
 #include <dolfinx/geometry/BoundingBoxTree.h>
 #include <dolfinx/geometry/dolfinx_geometry.h>
@@ -10,7 +11,6 @@
 #include <dolfinx/mesh/Mesh.h>
 #include <dolfinx/mesh/cell_types.h>
 #include <memory>
-#include <dolfinx.h>
 #include <span>
 #include <random>
 #include <typeinfo>
