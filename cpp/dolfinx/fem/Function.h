@@ -444,9 +444,6 @@ public:
             std::span<const std::int32_t> cells, std::span<value_type> u,
             std::array<std::size_t, 2> ushape) const
   {
-#if 1
-    CUDAeval<geometry_type, value_type>(x, xshape, cells, u, ushape);
-#else
     if (cells.empty())
       return;
 
@@ -731,6 +728,11 @@ public:
       }
       else
       {
+#if 1
+
+        basis_expansion(p, bs_element, space_dimension, value_size, ushape[1],
+                        u.data(), coefficients.data(), basis_values_b.data());
+#else
         // Compute expansion
         for (int k = 0; k < bs_element; ++k)
         {
@@ -743,9 +745,10 @@ public:
             }
           }
         }
+#endif
+        
       }
     }
-#endif
   }
 
   /// Name

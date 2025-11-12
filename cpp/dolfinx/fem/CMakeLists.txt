@@ -36,5 +36,5 @@ target_sources(
           ${CMAKE_CURRENT_SOURCE_DIR}/petsc.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/sparsitybuild.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/CUDAeval.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/CUDAeval.cu
 )

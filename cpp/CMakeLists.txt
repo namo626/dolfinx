@@ -9,6 +9,7 @@ endif()
 # ------------------------------------------------------------------------------
 # Set project name and version number
 project(DOLFINX VERSION "0.9.0")
+enable_language(CUDA)
 
 set(DOXYGEN_DOLFINX_VERSION
     ${DOLFINX_VERSION}
@@ -290,7 +291,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
        -Wno-array-bounds;-Wno-stringop-overflow)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -cuda")
 
 # ------------------------------------------------------------------------------
 # Find required packages
