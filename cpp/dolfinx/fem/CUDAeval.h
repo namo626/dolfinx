@@ -12,6 +12,9 @@ namespace dolfinx::fem
             std::span<const std::int32_t> cells, std::span<double> u,
             std::array<std::size_t, 2> ushape);
 
+  void CUDAexpand(int num_cells, int bs_element, int space_dimension, int value_size,
+                  double* u, int ushape1, double* coefficients_p, double* basis_values_p);
+
   void basis_expansion(int p, int bs_element, int space_dimension,
                                 int value_size, int ushape1, double* u,
                                 const double* coefficients,

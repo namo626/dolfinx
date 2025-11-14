@@ -696,7 +696,9 @@ public:
       for (std::size_t i = 0; i < dofs.size(); ++i)
         for (int k = 0; k < bs_dof; ++k)
           coefficients[bs_dof * i + k] = _v[bs_dof * dofs[i] + k];
-
+    }
+#if 1
+    for (std::size_t p = 0; p < cells.size(); ++p) {
       if (element->symmetric())
       {
         int row = 0;
@@ -728,11 +730,6 @@ public:
       }
       else
       {
-#if 1
-
-        basis_expansion(p, bs_element, space_dimension, value_size, ushape[1],
-                        u.data(), coefficients.data(), basis_values_b.data());
-#else
         // Compute expansion
         for (int k = 0; k < bs_element; ++k)
         {
@@ -745,10 +742,13 @@ public:
             }
           }
         }
-#endif
         
       }
     }
+#else
+    CUDAexpand(cells.size(), bs_element, space_dimension, value_size, u.data(),
+               ushape[1], coefficients_p, basis_values_p);
+#endif
   }
 
   /// Name
